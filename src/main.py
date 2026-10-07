@@ -1,24 +1,14 @@
 import sys
 from PySide6.QtGui import QColor, QPainter, QPen
 from PySide6.QtWidgets import QApplication, QWidget
-from PySide6.QtCore import Qt, QPointF, QRectF
+from PySide6.QtCore import Qt, QPointF
 from PySide6.QtWidgets import QMenu
+
+from line import Line
+from rectangle import Rectangle
 
 GRID_SIZE=50
 LINE_WIDTH=30
-
-class Line:
-    def __init__(self, start, end):
-        self.start = start
-        self.end = end
-    def draw(self, painter):
-        painter.drawLine(self.start, self.end)
-class Rectangle:
-    def __init__(self, start, end):
-        self.start = start # top left corner
-        self.end = end # bottom right
-    def draw(self, painter):
-        painter.drawRect(QRectF(self.start, self.end).normalized())
 
 class Canvas(QWidget):
     def __init__(self):
