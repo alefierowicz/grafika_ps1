@@ -6,6 +6,7 @@ from PySide6.QtWidgets import QMenu
 
 from line import Line
 from rectangle import Rectangle
+from circle import Circle
 
 GRID_SIZE=50
 LINE_WIDTH=30
@@ -24,13 +25,21 @@ class Canvas(QWidget):
             
             line_action = menu.addAction("Line")
             rect_action = menu.addAction("Rectangle")
-            menu.addAction("Circle")
-    
+            circle_action = menu.addAction("Circle")
+            
+            menu.addSeparator()
+            clear_action = menu.addAction("Clear all")
+            
             chosen = menu.exec(event.globalPosition().toPoint())
             if chosen == line_action:
                 self.preview = Line(QPointF(start), QPointF(start))
             elif chosen == rect_action:
                 self.preview = Rectangle(QPointF(start), QPointF(start))
+            elif chosen == circle_action:
+                self.preview = Circle(QPointF(start), QPointF(start))
+            elif chosen == clear_action:
+                self.shapes.clear()
+                self.preview = None
             self.update()
     # events
     def paintEvent(self, event):
@@ -44,10 +53,10 @@ class Canvas(QWidget):
             painter.drawLine(0, y, self.width(), y)
 
         for shape in self.shapes:
-            painter.setPen(QPen(QColor("black"), 2, Qt.PenStyle.DashDotLine))
+            painter.setPen(QPen(QColor("black"), 4, Qt.PenStyle.SolidLine))
             shape.draw(painter)
         if self.preview:
-            painter.setPen(QPen(QColor("black"), 2, Qt.PenStyle.DashDotLine))
+            painter.setPen(QPen(QColor("green"), 2, Qt.PenStyle.DashDotLine))
             self.preview.draw(painter)
 
     def mousePressEvent(self, event):
