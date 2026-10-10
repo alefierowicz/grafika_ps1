@@ -13,6 +13,7 @@ class StylePanel(QWidget):
         self.canvas = canvas
         self.setFixedWidth(200)
 
+        # TODO: check z prowadzacym bo moze byc bida w spec pisze ze pole tekstowe
         self.width_box = QSpinBox()
         self.width_box.setRange(1,20)
         self.width_box.setValue(canvas.pen.width())
