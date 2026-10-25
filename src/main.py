@@ -8,7 +8,7 @@ from panel import *
 if __name__ == "__main__":
     app = QApplication(sys.argv)
     canvas = Canvas()
-    panel = StylePanel(canvas)
+    panel = ParamPanel(canvas)
 
     window = QWidget()
     layout = QHBoxLayout(window)
