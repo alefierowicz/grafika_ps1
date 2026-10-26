@@ -1,6 +1,8 @@
+import csv
+
 from PySide6.QtGui import QPen
-from PySide6.QtWidgets import (QComboBox, QFormLayout, QLabel, QLineEdit,
-                               QPushButton, QVBoxLayout, QWidget)
+from PySide6.QtWidgets import (QComboBox, QFileDialog, QFormLayout, QHBoxLayout,
+                               QLabel, QLineEdit, QPushButton, QVBoxLayout, QWidget)
 
 from shapes import Circle, Line, Rectangle
 
@@ -9,12 +11,10 @@ SHAPE_TYPES = {
     "rectangle": Rectangle,
     "circle": Circle,
 }
-# reverse lookup: class -> name shown in the picker
 TYPE_NAMES = {cls: name for name, cls in SHAPE_TYPES.items()}
 
 
 def fmt(value):
-    """120.0 -> '120', 33.333333 -> '33.33'"""
     return f"{round(value, 2):g}"
 
 
@@ -34,7 +34,6 @@ class ParamPanel(QWidget):
         self.type_box.addItems(list(SHAPE_TYPES))
         self.type_box.currentTextChanged.connect(self.rebuild_fields)
 
-        # one form for everything: the shape's coordinate rows go at the top
         self.form = QFormLayout()
         self.inputs = []
 
@@ -58,6 +57,18 @@ class ParamPanel(QWidget):
         layout.addWidget(self.error_label)
         layout.addStretch()
 
+        # saving / loading the whole drawing, pinned to the bottom-right
+        load_button = QPushButton("load")
+        load_button.clicked.connect(self.load)
+        export_button = QPushButton("export")
+        export_button.clicked.connect(self.export)
+
+        file_row = QHBoxLayout()
+        file_row.addStretch()
+        file_row.addWidget(load_button)
+        file_row.addWidget(export_button)
+        layout.addLayout(file_row)
+
         self.rebuild_fields(self.type_box.currentText())
         self.show_shape(None)
 
@@ -65,10 +76,7 @@ class ParamPanel(QWidget):
         canvas.selection_changed.connect(self.show_shape)
         canvas.shape_edited.connect(self.refresh)
 
-    # --- switching modes ---------------------------------------------------
-
     def show_shape(self, shape):
-        """Called when the selection changes: edit that shape, or go back to adding."""
         self.shape = shape
         self.error_label.clear()
 
@@ -94,12 +102,10 @@ class ParamPanel(QWidget):
         self.width_input.setText(fmt(self.shape.pen.widthF()))
 
     def rebuild_fields(self, type_name):
-        # remove the previous shape's rows (they are always the first ones)
         for _ in self.inputs:
             self.form.removeRow(0)
         self.inputs = []
 
-        # one text field per parameter of the chosen shape, above "line width"
         for i, name in enumerate(SHAPE_TYPES[type_name].FIELDS):
             field = QLineEdit()
             self.form.insertRow(i, name, field)
@@ -107,10 +113,7 @@ class ParamPanel(QWidget):
 
         self.error_label.clear()
 
-    # --- the button ----------------------------------------------------------
-
     def read_inputs(self):
-        """Parse all fields; returns (values, width), or None after showing an error."""
         try:
             values = [float(field.text()) for field in self.inputs]
             width = float(self.width_input.text())
@@ -132,15 +135,54 @@ class ParamPanel(QWidget):
         values, width = parsed
 
         if self.shape is None:
-            # add mode: same colour/style as mouse drawing, but with the typed width
+            # add mode: 
             pen = QPen(self.canvas.pen)
             pen.setWidthF(width)
             shape_type = SHAPE_TYPES[self.type_box.currentText()]
             self.canvas.shapes.append(shape_type.from_params(values, pen))
         else:
-            # edit mode: reshape the selected shape in place
+            # edit mode: 
             self.shape.set_params(values)
             self.shape.pen.setWidthF(width)
             self.refresh()  # show the values the way the shape stores them
 
+        self.canvas.update()
+
+    # one shape per row: type, line width, then its params 
+    # for instance: circle,2,450,350,100
+
+    def export(self):
+        path, _ = QFileDialog.getSaveFileName(self, "export drawing", "drawing.csv", "CSV (*.csv)")
+        if not path:
+            return
+        with open(path, "w", newline="") as f:
+            writer = csv.writer(f)
+            for shape in self.canvas.shapes:
+                writer.writerow([TYPE_NAMES[type(shape)], shape.pen.widthF(), *shape.params()])
+
+    def load(self):
+        path, _ = QFileDialog.getOpenFileName(self, "load drawing", "", "CSV (*.csv)")
+        if not path:
+            return
+        shapes = []
+        try:
+            with open(path, newline="") as f:
+                for row in csv.reader(f):
+                    if not row:
+                        continue
+                    shape_type = SHAPE_TYPES[row[0]]
+                    width, *values = map(float, row[1:])
+                    if len(values) != len(shape_type.FIELDS):
+                        raise ValueError
+                    pen = QPen(self.canvas.pen)
+                    pen.setWidthF(width)
+                    shapes.append(shape_type.from_params(values, pen))
+        except (OSError, KeyError, ValueError):
+            self.error_label.setText("couldn't read that file")
+            return
+
+        # only replace the drawing once the whole file parsed fine
+        self.error_label.clear()
+        self.canvas.shapes = shapes
+        self.canvas.set_selected(None)
         self.canvas.update()

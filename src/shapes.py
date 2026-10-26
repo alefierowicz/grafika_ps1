@@ -1,25 +1,27 @@
 from PySide6.QtCore import QPointF, QRectF
 from PySide6.QtGui import QPen
-from math import hypot
+from math import hypot, sqrt
 
-# how close (in pixels) the cursor must be to an edge to "grab" it
 HIT_TOLERANCE = 6
-# size of the square handles drawn on a selected shape's characteristic points
 HANDLE_SIZE = 8
 
 
 def distance_to_segment(p, a, b):
-    """Shortest distance from point p to the segment a-b."""
-    abx, aby = b.x() - a.x(), b.y() - a.y()
-    length_sq = abx * abx + aby * aby
-    if length_sq == 0:  # segment is a single point
-        return hypot(p.x() - a.x(), p.y() - a.y())
-    # projection of p onto the segment, clamped to its ends (0 = a, 1 = b)
-    t = ((p.x() - a.x()) * abx + (p.y() - a.y()) * aby) / length_sq
-    t = max(0.0, min(1.0, t))
-    closest_x, closest_y = a.x() + t * abx, a.y() + t * aby
-    return hypot(p.x() - closest_x, p.y() - closest_y)
+    A = a.y() - b.y()
+    B = b.x() - a.x()
+    C = a.x() * b.y() - b.x() * a.y()
 
+    if A == 0 and B == 0:
+        return hypot(p.x() - a.x(), p.y() - a.y())
+
+    # projecting the point
+    if (p.x() - a.x()) * B - (p.y() - a.y()) * A <= 0:
+        return hypot(p.x() - a.x(), p.y() - a.y())
+
+    if (p.x() - b.x()) * B - (p.y() - b.y()) * A >= 0:
+        return hypot(p.x() - b.x(), p.y() - b.y())
+
+    return abs(A * p.x() + B * p.y() + C) / sqrt(A * A + B * B)
 
 class Shape:
     # names of the text fields that describe this shape, in order
@@ -32,41 +34,33 @@ class Shape:
 
     @classmethod
     def from_params(cls, values, pen):
-        """Build the shape from numbers typed into the panel (same order as FIELDS)."""
         shape = cls(QPointF(), QPointF(), pen)
         shape.set_params(values)
         return shape
 
     def params(self):
-        """The shape's current numbers, in the same order as FIELDS."""
         raise NotImplementedError
 
     def set_params(self, values):
-        """Reshape this shape from numbers in the same order as FIELDS."""
         raise NotImplementedError
 
     def move(self, delta):
-        """Shift the whole shape by delta (a QPointF)."""
         self.start = self.start + delta
         self.end = self.end + delta
 
     def hit_test(self, point):
-        """True if point is on (close enough to) the shape's outline."""
         return self.edge_distance(point) <= HIT_TOLERANCE + self.pen.widthF() / 2
 
     def edge_distance(self, point):
         raise NotImplementedError
 
     def handles(self):
-        """Characteristic points that can be dragged to reshape the shape."""
         raise NotImplementedError
 
     def move_handle(self, index, pos):
-        """Put handle number `index` at pos, reshaping the shape around it."""
         raise NotImplementedError
 
     def handle_at(self, point):
-        """Index of the handle under point, or None."""
         for i, h in enumerate(self.handles()):
             if hypot(point.x() - h.x(), point.y() - h.y()) <= HANDLE_SIZE:
                 return i
@@ -105,14 +99,11 @@ class Rectangle(Shape):
     FIELDS = ["x", "y", "width", "height"]
 
     def params(self):
-        # normalized, so a rectangle drawn "backwards" still reports
-        # its top-left corner and a positive width/height
         r = self.rect()
         return [r.x(), r.y(), r.width(), r.height()]
 
     def set_params(self, values):
         x, y, w, h = values
-        # start = top-left corner, end = opposite corner
         self.start = QPointF(x, y)
         self.end = QPointF(x + w, y + h)
 
@@ -130,8 +121,6 @@ class Rectangle(Shape):
                    for i in range(4))
 
     def handles(self):
-        # built from start/end directly (not the normalized rect), so each handle
-        # stays tied to the same coordinates even if the rectangle gets flipped
         return [
             self.start,                              # 0
             QPointF(self.end.x(), self.start.y()),   # 1
@@ -140,7 +129,6 @@ class Rectangle(Shape):
         ]
 
     def move_handle(self, index, pos):
-        # each corner owns one x and one y; the opposite corner never changes
         sx, sy, ex, ey = self.start.x(), self.start.y(), self.end.x(), self.end.y()
         if index == 0:
             sx, sy = pos.x(), pos.y()

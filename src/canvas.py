@@ -37,7 +37,6 @@ CLICK_DRAW_STYLE = """
 """
 
 class Canvas(QWidget):
-    # announced to whoever listens (the panel), so the canvas doesn't need to know about it
     selection_changed = Signal(object)  # the newly selected shape, or None
     shape_edited = Signal()             # the selected shape was moved/reshaped by the mouse
 
@@ -195,17 +194,14 @@ class Canvas(QWidget):
                 shape = self.shape_at(pos)
 
                 if handle is not None:
-                    # 1. a handle of the selected shape: resize
                     self.handle_drag = handle
                     self.setCursor(Qt.CursorShape.SizeAllCursor)
                 elif shape:
-                    # 2. a shape's edge: select it and start moving it
                     self.set_selected(shape)
                     self.dragging = shape
                     self.drag_last = pos
                     self.setCursor(Qt.CursorShape.ClosedHandCursor)
                 else:
-                    # 3. empty canvas: deselect
                     self.set_selected(None)
             self.update()
 
@@ -213,12 +209,10 @@ class Canvas(QWidget):
         pos = event.position()
 
         if self.handle_drag is not None:
-            # put the dragged handle under the cursor
             self.selected.move_handle(self.handle_drag, pos)
             self.shape_edited.emit()
             self.update()
         elif self.dragging:
-            # move by how far the cursor travelled since the last event
             self.dragging.move(pos - self.drag_last)
             self.drag_last = pos
             self.shape_edited.emit()
@@ -227,7 +221,6 @@ class Canvas(QWidget):
             self.preview.end = pos
             self.update()
         elif not self.pending:
-            # idle: show what a press here would do
             if self.selected and self.selected.handle_at(pos) is not None:
                 self.setCursor(Qt.CursorShape.SizeAllCursor)
             elif self.shape_at(pos):

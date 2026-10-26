@@ -13,7 +13,7 @@ if __name__ == "__main__":
     window = QWidget()
     layout = QHBoxLayout(window)
     layout.addWidget(canvas)
-    layout.addWidget(panel, alignment=Qt.AlignmentFlag.AlignTop)
+    layout.addWidget(panel)  # full height, so the file buttons sit at the bottom
 
     window.show()
     sys.exit(app.exec())
